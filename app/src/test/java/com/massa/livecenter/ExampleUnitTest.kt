@@ -1,4 +1,4 @@
-package com.massa.websocketimplementation
+package com.massa.livecenter
 
 import org.junit.Test
 
