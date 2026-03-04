@@ -1,8 +1,11 @@
 package com.massa.livecenter.data.remote.sse
 
 import com.google.gson.Gson
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,6 +35,22 @@ class CommentarySseClient @Inject constructor(
         //      CommentaryEventDto using gson, and emit it.
         //   4. In the finally block, cancel the OkHttp Call to stop streaming when the
         //      collector is cancelled.
-        TODO("Implement SSE streaming logic")
+        // TODO("Implement SSE streaming logic")
+        val request = Request.Builder().url(BASE_URL.format(matchId)).build()
+        val response = okHttpClient.newCall(request).execute()
+        return callbackFlow {
+            val source = response.body.byteStream().bufferedReader()
+            source.forEachLine { line ->
+                if (line.startsWith("data:")) {
+                    val commentaryEventDto = gson.fromJson(line.substring(5), CommentaryEventDto::class.java)
+                    trySend(commentaryEventDto)
+                }
+            }
+
+            awaitClose {
+                source.close()
+                response.body.close()
+            }
+        }
     }
 }
