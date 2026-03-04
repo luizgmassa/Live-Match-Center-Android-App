@@ -1,12 +1,18 @@
 package com.massa.livecenter.data.remote.websocket
 
 import com.google.gson.Gson
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,11 +43,37 @@ class OddsWebSocketClient @Inject constructor(
         //   - In onFailure()    → set _connectionState to Reconnecting, schedule a reconnect
         //   - In onClosing()    → set _connectionState to Disconnected
         // Then call okHttpClient.newWebSocket(request, listener) and store the result in webSocket
-        TODO("Implement WebSocket connection logic")
+        // TODO("Implement WebSocket connection logic")
+        val request = Request.Builder().url(WS_URL).build()
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                _connectionState.value = WebSocketConnectionState.Connected
+            }
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val oddsUpdateDto = gson.fromJson(text, OddsUpdateDto::class.java)
+                CoroutineScope(Dispatchers.IO).launch {
+                    _oddsFlow.emit(oddsUpdateDto)
+                }
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                webSocket.close(1000, "Server error")
+                _connectionState.value = WebSocketConnectionState.Reconnecting
+                CoroutineScope(Dispatchers.IO).launch {
+                    connect()
+                }
+            }
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                _connectionState.value = WebSocketConnectionState.Disconnected
+            }
+        }
+        webSocket = okHttpClient.newWebSocket(request, listener)
     }
 
     fun disconnect() {
         // TODO: Call webSocket?.close(1000, "Client disconnect"), set _connectionState to Disconnected
-        TODO("Implement WebSocket disconnect logic")
+        // TODO("Implement WebSocket disconnect logic")
+        webSocket?.close(1000, "Client disconnect")
+        _connectionState.value = WebSocketConnectionState.Disconnected
+        webSocket = null
     }
 }
