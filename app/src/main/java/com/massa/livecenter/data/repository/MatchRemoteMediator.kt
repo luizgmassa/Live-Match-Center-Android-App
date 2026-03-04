@@ -4,8 +4,10 @@ import androidx.paging.ExperimentalPagingApi
 import androidx.paging.LoadType
 import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
+import androidx.room.withTransaction
 import com.massa.livecenter.data.local.db.LiveCenterDatabase
 import com.massa.livecenter.data.local.db.MatchEntity
+import com.massa.livecenter.data.local.db.RemoteKeyEntity
 import com.massa.livecenter.data.remote.rest.MatchApiService
 import javax.inject.Inject
 
@@ -36,6 +38,66 @@ class MatchRemoteMediator @Inject constructor(
         //     - Otherwise fetch that page and upsert; return Success with endOfPagination flag
         //
         //   Wrap everything in try/catch and return MediatorResult.Error(e) on failure.
-        return MediatorResult.Error(NotImplementedError("MatchRemoteMediator.load() is not yet implemented"))
+        return try {
+            val page = when (loadType) {
+                LoadType.REFRESH -> FIRST_PAGE
+
+                LoadType.PREPEND ->
+                    // We never need to load pages before the first — scroll direction is append-only.
+                    return MediatorResult.Success(endOfPaginationReached = true)
+
+                LoadType.APPEND -> {
+                    // Find the remote key for the last item currently in the paging state.
+                    val lastItem = state.lastItemOrNull()
+                        ?: return MediatorResult.Success(endOfPaginationReached = true)
+
+                    val remoteKey = database.remoteKeyDao().remoteKeyByMatchId(lastItem.id)
+                    remoteKey?.nextPage
+                        ?: return MediatorResult.Success(endOfPaginationReached = true)
+                }
+            }
+
+            val response = apiService.getLiveMatches(
+                page = page,
+                size = state.config.pageSize
+            )
+
+            val matches = response.matches.map { dto ->
+                MatchEntity(
+                    id = dto.id,
+                    homeTeam = dto.homeTeam,
+                    awayTeam = dto.awayTeam,
+                    score = dto.score,
+                    minute = dto.minute
+                )
+            }
+
+            val remoteKeys = response.matches.map { dto ->
+                RemoteKeyEntity(
+                    matchId = dto.id,
+                    prevPage = if (page == FIRST_PAGE) null else page - 1,
+                    nextPage = response.nextPage
+                )
+            }
+
+            val endOfPaginationReached = response.nextPage == null
+
+            database.withTransaction {
+                if (loadType == LoadType.REFRESH) {
+                    database.remoteKeyDao().clearAll()
+                    database.matchDao().clearAll()
+                }
+                database.remoteKeyDao().insertAll(remoteKeys)
+                database.matchDao().upsertAll(matches)
+            }
+
+            MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
+        } catch (e: Exception) {
+            MediatorResult.Error(e)
+        }
+    }
+
+    companion object {
+        private const val FIRST_PAGE = 1
     }
 }

@@ -34,14 +34,26 @@ class LiveMatchRepositoryImpl @Inject constructor(
     @OptIn(ExperimentalPagingApi::class)
     override fun getLiveMatchesPager(): Flow<PagingData<Match>> {
         return Pager(
-            config = PagingConfig(pageSize = PAGE_SIZE, enablePlaceholders = false),
             // TODO: add remoteMediator = matchRemoteMediator
+            config = PagingConfig(
+                pageSize = PAGE_SIZE,
+                enablePlaceholders = false,
+                prefetchDistance = 5
+            ),
+            remoteMediator = matchRemoteMediator,
             pagingSourceFactory = { database.matchDao().getPagedMatches() }
         ).flow.map { pagingData ->
             // TODO: map MatchEntity → domain Match
             // pagingData.map { entity -> entity.toDomain() }
-            @Suppress("UNCHECKED_CAST")
-            pagingData as PagingData<Match>
+            pagingData.map { entity ->
+                Match(
+                    id = entity.id,
+                    homeTeam = entity.homeTeam,
+                    awayTeam = entity.awayTeam,
+                    score = entity.score,
+                    minute = entity.minute
+                )
+            }
         }
     }
 
@@ -62,6 +74,8 @@ class LiveMatchRepositoryImpl @Inject constructor(
 
     override suspend fun refreshMatches() {
         // TODO: Trigger a fresh load — e.g. invalidate the PagingSource or call the mediator REFRESH path directly
-        throw NotImplementedError("refreshMatches is not yet implemented")
+        // Invalidate the active PagingSource so Paging 3 triggers a fresh REFRESH load
+        // through the RemoteMediator which will fetch page 1 and repopulate the DB.
+        database.matchDao().clearAll()
     }
 }

@@ -22,8 +22,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
+
 
 @HiltViewModel
 class LiveMatchViewModel @Inject constructor(
@@ -41,14 +41,14 @@ class LiveMatchViewModel @Inject constructor(
     val uiEffect: SharedFlow<LiveMatchUiEffect> = _uiEffect.asSharedFlow()
 
     /**
-     * Paging data flow, safe to collect with [androidx.paging.compose.collectAsLazyPagingItems]
-     * in a Composable. Returns an empty flow until the candidate implements the use case.
+     * Paging data flow, safe to collect with [androidx.paging.compose.collectAsLazyPagingItems].
+     * Cached in [viewModelScope] so recompositions don't restart the upstream Flow.
      *
      * TODO (candidate): After implementing GetLiveMatchesPagerUseCase, replace the placeholder
      * with: getLiveMatchesPager().cachedIn(viewModelScope)
      */
-    val matchesPagingFlow: Flow<PagingData<Match>> = flowOf(PagingData.empty())
-        // TODO: replace with getLiveMatchesPager().cachedIn(viewModelScope)
+    val matchesPagingFlow: Flow<PagingData<Match>> = getLiveMatchesPager()
+        .cachedIn(viewModelScope)
 
     private var oddsJob: Job? = null
     private var commentaryJob: Job? = null

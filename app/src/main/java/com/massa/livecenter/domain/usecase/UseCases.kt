@@ -13,11 +13,10 @@ import javax.inject.Inject
 class GetLiveMatchesPagerUseCase @Inject constructor(
     private val repository: LiveMatchRepository
 ) {
-    operator fun invoke(): Flow<PagingData<Match>> {
         // TODO: delegate to repository.getLiveMatchesPager()
-        TODO("Implement GetLiveMatchesPagerUseCase")
-    }
+    operator fun invoke(): Flow<PagingData<Match>> = repository.getLiveMatchesPager()
 }
+
 
 class ObserveOddsUseCase @Inject constructor(
     private val repository: LiveMatchRepository
