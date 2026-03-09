@@ -160,11 +160,12 @@ fun LiveMatchCenterScreen(
                             val match = lazyPagingItems[index] ?: return@items
                             MatchCard(
                                 match = match,
-                                odds = null, // TODO: Wire real-time odds from ViewModel state
+                                odds = uiState.oddsMap[match.id],
                                 onClick = {
                                     viewModel.onEvent(LiveMatchUiEvent.SelectMatch(match.id))
                                 }
                             )
+
                         }
 
                         if (lazyPagingItems.loadState.append is LoadState.Loading) {

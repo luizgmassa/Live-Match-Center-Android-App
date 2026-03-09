@@ -10,11 +10,13 @@ import com.massa.livecenter.data.remote.sse.CommentarySseClient
 import com.massa.livecenter.data.remote.websocket.OddsWebSocketClient
 import com.massa.livecenter.data.remote.websocket.WebSocketConnectionState
 import com.massa.livecenter.domain.model.Commentary
+import com.massa.livecenter.domain.model.CommentaryType
 import com.massa.livecenter.domain.model.Match
 import com.massa.livecenter.domain.model.Odds
 import com.massa.livecenter.domain.repository.LiveMatchRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,7 +36,6 @@ class LiveMatchRepositoryImpl @Inject constructor(
     @OptIn(ExperimentalPagingApi::class)
     override fun getLiveMatchesPager(): Flow<PagingData<Match>> {
         return Pager(
-            // TODO: add remoteMediator = matchRemoteMediator
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
                 enablePlaceholders = false,
@@ -43,8 +44,6 @@ class LiveMatchRepositoryImpl @Inject constructor(
             remoteMediator = matchRemoteMediator,
             pagingSourceFactory = { database.matchDao().getPagedMatches() }
         ).flow.map { pagingData ->
-            // TODO: map MatchEntity → domain Match
-            // pagingData.map { entity -> entity.toDomain() }
             pagingData.map { entity ->
                 Match(
                     id = entity.id,
@@ -58,8 +57,27 @@ class LiveMatchRepositoryImpl @Inject constructor(
     }
 
     override fun observeOddsForMatch(matchId: String): Flow<Odds> {
-        // TODO: Filter oddsWebSocketClient.oddsFlow by matchId, map OddsUpdateDto → domain Odds
-        throw NotImplementedError("observeOddsForMatch is not yet implemented")
+        return oddsWebSocketClient.oddsFlow
+            .filter { it.matchId == matchId }
+            .map { dto ->
+                Odds(
+                    matchId = dto.matchId,
+                    home = dto.odds.home,
+                    draw = dto.odds.draw,
+                    away = dto.odds.away
+                )
+            }
+    }
+
+    override fun observeAllOdds(): Flow<Odds> {
+        return oddsWebSocketClient.oddsFlow.map { dto ->
+            Odds(
+                matchId = dto.matchId,
+                home = dto.odds.home,
+                draw = dto.odds.draw,
+                away = dto.odds.away
+            )
+        }
     }
 
     override fun observeCommentary(matchId: String): Flow<Commentary> {
@@ -68,14 +86,23 @@ class LiveMatchRepositoryImpl @Inject constructor(
     }
 
     override fun observeConnectionState(): StateFlow<WebSocketConnectionState> {
-        // TODO: Return oddsWebSocketClient.connectionState
-        throw NotImplementedError("observeConnectionState is not yet implemented")
+        return oddsWebSocketClient.connectionState
+    }
+
+    override fun connectWebSocket() {
+        oddsWebSocketClient.connect()
+    }
+
+    override fun disconnectWebSocket() {
+        oddsWebSocketClient.disconnect()
     }
 
     override suspend fun refreshMatches() {
-        // TODO: Trigger a fresh load — e.g. invalidate the PagingSource or call the mediator REFRESH path directly
-        // Invalidate the active PagingSource so Paging 3 triggers a fresh REFRESH load
-        // through the RemoteMediator which will fetch page 1 and repopulate the DB.
+        // Clearing the table invalidates the active PagingSource, which triggers
+        // a fresh REFRESH load through the RemoteMediator.
         database.matchDao().clearAll()
     }
+
+    private fun parseCommentaryType(raw: String): CommentaryType =
+        runCatching { CommentaryType.valueOf(raw) }.getOrDefault(CommentaryType.GENERAL)
 }
