@@ -24,7 +24,10 @@ object DatabaseModule {
             context,
             LiveCenterDatabase::class.java,
             "live_center.db"
-        ).build()
+        )
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
+
 
     @Provides
     fun provideMatchDao(database: LiveCenterDatabase): MatchDao = database.matchDao()

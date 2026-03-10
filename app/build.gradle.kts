@@ -75,6 +75,7 @@ dependencies {
     // OkHttp
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+    implementation(libs.okhttp.mockwebserver)
 
     // Paging 3
     implementation(libs.paging.runtime)

@@ -14,17 +14,21 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
+/**
+ * OkHttp WebSocket client that connects to the odds stream.
+ *
+ * The target URL is injected via [@Named("wsUrl")] so the same class works with both
+ * the real production server and the local [MockOddsWebSocketServer] during development.
+ */
 @Singleton
 class OddsWebSocketClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
-    private val gson: Gson
+    private val gson: Gson,
+    @Named("wsUrl") private val wsUrl: String
 ) {
-    companion object {
-        private const val WS_URL = "wss://live.superbet.dev/odds"
-    }
-
     private val _connectionState = MutableStateFlow<WebSocketConnectionState>(
         WebSocketConnectionState.Disconnected
     )
@@ -36,32 +40,25 @@ class OddsWebSocketClient @Inject constructor(
     private var webSocket: WebSocket? = null
 
     fun connect() {
-        // TODO: Build an OkHttp Request for WS_URL, create a WebSocketListener that:
-        //   - In onOpen()       → set _connectionState to Connected
-        //   - In onMessage()    → parse JSON with gson into OddsUpdateDto and emit to _oddsFlow
-        //                          (use a CoroutineScope to emit from a non-suspend callback)
-        //   - In onFailure()    → set _connectionState to Reconnecting, schedule a reconnect
-        //   - In onClosing()    → set _connectionState to Disconnected
-        // Then call okHttpClient.newWebSocket(request, listener) and store the result in webSocket
-        // TODO("Implement WebSocket connection logic")
-        val request = Request.Builder().url(WS_URL).build()
+        val request = Request.Builder().url(wsUrl).build()
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 _connectionState.value = WebSocketConnectionState.Connected
             }
+
             override fun onMessage(webSocket: WebSocket, text: String) {
-                val oddsUpdateDto = gson.fromJson(text, OddsUpdateDto::class.java)
+                val dto = gson.fromJson(text, OddsUpdateDto::class.java)
                 CoroutineScope(Dispatchers.IO).launch {
-                    _oddsFlow.emit(oddsUpdateDto)
+                    _oddsFlow.emit(dto)
                 }
             }
+
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 webSocket.close(1000, "Server error")
                 _connectionState.value = WebSocketConnectionState.Reconnecting
-                CoroutineScope(Dispatchers.IO).launch {
-                    connect()
-                }
+                CoroutineScope(Dispatchers.IO).launch { connect() }
             }
+
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 _connectionState.value = WebSocketConnectionState.Disconnected
             }
@@ -70,8 +67,6 @@ class OddsWebSocketClient @Inject constructor(
     }
 
     fun disconnect() {
-        // TODO: Call webSocket?.close(1000, "Client disconnect"), set _connectionState to Disconnected
-        // TODO("Implement WebSocket disconnect logic")
         webSocket?.close(1000, "Client disconnect")
         _connectionState.value = WebSocketConnectionState.Disconnected
         webSocket = null

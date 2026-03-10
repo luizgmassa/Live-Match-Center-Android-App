@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        Allow cleartext HTTP to localhost only.
+        Required for MockWebServer (REST + WebSocket) which binds to 127.0.0.1.
+        All other traffic remains subject to the default policy (HTTPS only on API 28+).
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

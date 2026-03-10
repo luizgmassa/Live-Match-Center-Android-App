@@ -17,6 +17,15 @@ class MatchRemoteMediator @Inject constructor(
     private val database: LiveCenterDatabase
 ) : RemoteMediator<Int, MatchEntity>() {
 
+    /**
+     * Always request a fresh network REFRESH when the pager first subscribes.
+     * This guarantees the RemoteMediator is invoked even if Room already has rows
+     * from a previous session — important when the mock server generates different
+     * data on each launch.
+     */
+    override suspend fun initialize(): InitializeAction =
+        InitializeAction.LAUNCH_INITIAL_REFRESH
+
     override suspend fun load(
         loadType: LoadType,
         state: PagingState<Int, MatchEntity>
@@ -93,8 +102,10 @@ class MatchRemoteMediator @Inject constructor(
 
             MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
         } catch (e: Exception) {
+            android.util.Log.e("MatchRemoteMediator", "load() failed [${loadType.name}]", e)
             MediatorResult.Error(e)
         }
+
     }
 
     companion object {

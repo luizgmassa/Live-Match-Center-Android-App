@@ -113,6 +113,7 @@ fun LiveMatchCenterScreen(
                 }
 
                 lazyPagingItems.loadState.refresh is LoadState.Error -> {
+                    val error = (lazyPagingItems.loadState.refresh as LoadState.Error).error
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -125,9 +126,9 @@ fun LiveMatchCenterScreen(
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "Implement the ViewModel and Repository\nto wire up live data.",
+                                text = "${error::class.simpleName}: ${error.message}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.outline,
+                                color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(horizontal = 32.dp)
                             )
