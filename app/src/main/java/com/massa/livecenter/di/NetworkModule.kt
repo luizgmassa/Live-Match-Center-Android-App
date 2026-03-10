@@ -1,6 +1,7 @@
 package com.massa.livecenter.di
 
 import com.google.gson.Gson
+import com.massa.livecenter.data.mock.MockCommentarySseServer
 import com.massa.livecenter.data.mock.MockMatchRestServer
 import com.massa.livecenter.data.mock.MockOddsWebSocketServer
 import com.massa.livecenter.data.remote.rest.MatchApiService
@@ -81,6 +82,24 @@ object NetworkModule {
     @Named("wsUrl")
     fun provideWsUrl(mockServer: MockOddsWebSocketServer): String = mockServer.wsUrl()
 
+    @Provides
+    @Named("sseBaseUrl")
+    fun provideSseBaseUrl(mockCommentarySseServer: MockCommentarySseServer): String =
+        mockCommentarySseServer.baseUrl()
+
+    /**
+     * Starts the [MockCommentarySseServer] (ServerSocket-based, streams events with delays).
+     * To switch to the real SSE endpoint, remove this provider and update [provideSseBaseUrl]
+     * to return: `"https://api.superbet.dev/v1/"`
+     */
+    @Provides
+    @Singleton
+    fun provideMockCommentarySseServer(gson: Gson): MockCommentarySseServer {
+        val server = MockCommentarySseServer(gson)
+        server.start()
+        return server
+    }
+
     // ------------------------------------------------------------------ //
     //  Real clients                                                        //
     // ------------------------------------------------------------------ //
@@ -115,6 +134,7 @@ object NetworkModule {
     @Singleton
     fun provideCommentarySseClient(
         okHttpClient: OkHttpClient,
-        gson: Gson
-    ): CommentarySseClient = CommentarySseClient(okHttpClient, gson)
+        gson: Gson,
+        @Named("sseBaseUrl") sseBaseUrl: String
+    ): CommentarySseClient = CommentarySseClient(okHttpClient, gson, sseBaseUrl)
 }

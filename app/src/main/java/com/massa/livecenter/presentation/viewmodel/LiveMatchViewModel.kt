@@ -84,7 +84,7 @@ class LiveMatchViewModel @Inject constructor(
         when (event) {
             is LiveMatchUiEvent.SelectMatch -> {
                 _uiState.update { it.copy(selectedMatchId = event.matchId, commentary = emptyList()) }
-                //startObservingCommentary(event.matchId)
+                startObservingCommentary(event.matchId)
             }
 
             is LiveMatchUiEvent.Refresh -> {
@@ -109,19 +109,12 @@ class LiveMatchViewModel @Inject constructor(
         }
     }
 
-    private fun observeOddsForMatch(matchId: String) {
-        // TODO: oddsJob = viewModelScope.launch {
-        //   observeOdds(matchId).collect { odds ->
-        //       // odds are emitted per matchId — store in a map in _uiState if needed
-        //   }
-        // }
-    }
-
-    private fun observeCommentaryForMatch(matchId: String) {
-        // TODO: commentaryJob = viewModelScope.launch {
-        //   observeCommentary(matchId).collect { commentary ->
-        //       _uiState.update { it.copy(commentary = it.commentary + commentary) }
-        //   }
-        // }
+    private fun startObservingCommentary(matchId: String) {
+        commentaryJob?.cancel()
+        commentaryJob = viewModelScope.launch {
+            observeCommentary(matchId).collect { event ->
+                _uiState.update { it.copy(commentary = it.commentary + event) }
+            }
+        }
     }
 }

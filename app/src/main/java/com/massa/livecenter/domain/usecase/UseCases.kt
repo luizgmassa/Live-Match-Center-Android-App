@@ -33,10 +33,8 @@ class ObserveAllOddsUseCase @Inject constructor(
 class ObserveCommentaryUseCase @Inject constructor(
     private val repository: LiveMatchRepository
 ) {
-    operator fun invoke(matchId: String): Flow<Commentary> {
-        // TODO: delegate to repository.observeCommentary(matchId)
-        TODO("Implement ObserveCommentaryUseCase")
-    }
+    operator fun invoke(matchId: String): Flow<Commentary> =
+        repository.observeCommentary(matchId)
 }
 
 class ObserveConnectionStateUseCase @Inject constructor(

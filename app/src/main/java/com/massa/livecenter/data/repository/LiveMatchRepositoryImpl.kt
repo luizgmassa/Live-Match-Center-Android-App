@@ -81,8 +81,13 @@ class LiveMatchRepositoryImpl @Inject constructor(
     }
 
     override fun observeCommentary(matchId: String): Flow<Commentary> {
-        // TODO: Call commentarySseClient.observeCommentary(matchId), map CommentaryEventDto → domain Commentary
-        throw NotImplementedError("observeCommentary is not yet implemented")
+        return commentarySseClient.observeCommentary(matchId).map { dto ->
+            Commentary(
+                minute = dto.minute,
+                text   = dto.text,
+                type   = parseCommentaryType(dto.type)
+            )
+        }
     }
 
     override fun observeConnectionState(): StateFlow<WebSocketConnectionState> {
